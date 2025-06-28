@@ -113,6 +113,7 @@ class ModelProviderRegistry:
         # Define explicit provider priority order
         # Native APIs first, then custom endpoints, then catch-all providers
         PROVIDER_PRIORITY_ORDER = [
+            ProviderType.UNIFIED,  # Unified interface first if enabled
             ProviderType.GOOGLE,  # Direct Gemini access
             ProviderType.OPENAI,  # Direct OpenAI access
             ProviderType.XAI,  # Direct X.AI GROK access
@@ -236,6 +237,7 @@ class ModelProviderRegistry:
             ProviderType.OPENROUTER: "OPENROUTER_API_KEY",
             ProviderType.CUSTOM: "CUSTOM_API_KEY",  # Can be empty for providers that don't need auth
             ProviderType.DIAL: "DIAL_API_KEY",
+            ProviderType.UNIFIED: "",  # Unified provider manages its own keys
         }
 
         env_var = key_mapping.get(provider_type)

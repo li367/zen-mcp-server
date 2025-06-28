@@ -358,7 +358,7 @@ class SimpleTool(BaseTool):
                             # Get updated thread context after adding the turn
                             thread_context = get_thread(continuation_id)
                             logger.debug(
-                                f"{self.get_name()}: Retrieved updated thread with {len(thread_context.turns)} turns"
+                                f"{self.get_name()}: Retrieved updated thread with {len(thread_context.turns) if thread_context else 0} turns"
                             )
 
                         # Build conversation history with updated thread context
@@ -821,7 +821,7 @@ Please provide a thoughtful, comprehensive response:"""
         Returns:
             True if the tool uses a custom request model
         """
-        return self.get_request_model() != ToolRequest
+        return self.get_request_model() is not ToolRequest
 
     def _validate_file_paths(self, request) -> Optional[str]:
         """
@@ -851,7 +851,7 @@ Please provide a thoughtful, comprehensive response:"""
 
         return None
 
-    def prepare_chat_style_prompt(self, request, system_prompt: str = None) -> str:
+    def prepare_chat_style_prompt(self, request, system_prompt: Optional[str] = None) -> str:
         """
         Prepare a prompt using Chat tool-style patterns.
 

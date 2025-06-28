@@ -443,13 +443,7 @@ def configure_providers():
 
     # 2. Custom provider second (for local/private models)
     if has_custom:
-        # Factory function that creates CustomProvider with proper parameters
-        def custom_provider_factory(api_key=None):
-            # api_key is CUSTOM_API_KEY (can be empty for Ollama), base_url from CUSTOM_API_URL
-            base_url = os.getenv("CUSTOM_API_URL", "")
-            return CustomProvider(api_key=api_key or "", base_url=base_url)  # Use provided API key or empty string
-
-        ModelProviderRegistry.register_provider(ProviderType.CUSTOM, custom_provider_factory)
+        ModelProviderRegistry.register_provider(ProviderType.CUSTOM, CustomProvider)
 
     # 3. OpenRouter last (catch-all for everything else)
     if has_openrouter:
@@ -466,6 +460,12 @@ def configure_providers():
             "- OPENROUTER_API_KEY for OpenRouter (multiple models)\n"
             "- CUSTOM_API_URL for local models (Ollama, vLLM, etc.)"
         )
+
+    # Register unified OpenAI provider if enabled
+    if os.getenv("ENABLE_UNIFIED_OPENAI", "").lower() in ("true", "1", "yes"):
+        from providers.unified_openai import UnifiedOpenAIProvider
+        ModelProviderRegistry.register_provider(ProviderType.UNIFIED, UnifiedOpenAIProvider)
+        logger.info("Unified OpenAI provider enabled - all models accessible via OpenAI-compatible interface")
 
     logger.info(f"Available providers: {', '.join(valid_providers)}")
 
@@ -801,7 +801,7 @@ def parse_model_option(model_string: str) -> tuple[str, Optional[str]]:
     return model_string.strip(), None
 
 
-def get_follow_up_instructions(current_turn_count: int, max_turns: int = None) -> str:
+def get_follow_up_instructions(current_turn_count: int, max_turns: Optional[int] = None) -> str:
     """
     Generate dynamic follow-up instructions based on conversation turn count.
 
@@ -1104,7 +1104,7 @@ async def handle_list_prompts() -> list[Prompt]:
             prompts.append(
                 Prompt(
                     name=template_info["name"],
-                    description=template_info["description"],
+                    description=template_info["description"] if template_info else f"Use {tool_name}",
                     arguments=[],  # MVP: no structured args
                 )
             )
@@ -1132,7 +1132,7 @@ async def handle_list_prompts() -> list[Prompt]:
 
 
 @server.get_prompt()
-async def handle_get_prompt(name: str, arguments: dict[str, Any] = None) -> GetPromptResult:
+async def handle_get_prompt(name: str, arguments: Optional[dict[str, Any]] = None) -> GetPromptResult:
     """
     Get prompt details and generate the actual prompt text.
 
@@ -1192,7 +1192,7 @@ async def handle_get_prompt(name: str, arguments: dict[str, Any] = None) -> GetP
             raise ValueError(f"Unknown prompt: {name}")
 
     # Get the template
-    template = template_info.get("template", f"Use {tool_name}")
+    template = template_info.get("template", f"Use {tool_name}") if template_info else f"Use {tool_name}"
 
     # Safe template expansion with defaults
     final_model = arguments.get("model", "auto") if arguments else "auto"
@@ -1222,7 +1222,7 @@ async def handle_get_prompt(name: str, arguments: dict[str, Any] = None) -> GetP
     return GetPromptResult(
         prompt=Prompt(
             name=name,
-            description=template_info["description"],
+            description=template_info["description"] if template_info else f"Use {tool_name}",
             arguments=[],
         ),
         messages=[
