@@ -18,6 +18,7 @@ class ProviderType(Enum):
     OPENROUTER = "openrouter"
     CUSTOM = "custom"
     DIAL = "dial"
+    UNIFIED = "unified"
 
 
 class TemperatureConstraint(ABC):
@@ -66,7 +67,7 @@ class FixedTemperatureConstraint(TemperatureConstraint):
 class RangeTemperatureConstraint(TemperatureConstraint):
     """For models supporting continuous temperature ranges."""
 
-    def __init__(self, min_temp: float, max_temp: float, default: float = None):
+    def __init__(self, min_temp: float, max_temp: float, default: Optional[float] = None):
         self.min_temp = min_temp
         self.max_temp = max_temp
         self.default_temp = default or (min_temp + max_temp) / 2
@@ -87,7 +88,7 @@ class RangeTemperatureConstraint(TemperatureConstraint):
 class DiscreteTemperatureConstraint(TemperatureConstraint):
     """For models supporting only specific temperature values."""
 
-    def __init__(self, allowed_values: list[float], default: float = None):
+    def __init__(self, allowed_values: list[float], default: Optional[float] = None):
         self.allowed_values = sorted(allowed_values)
         self.default_temp = default or allowed_values[len(allowed_values) // 2]
 

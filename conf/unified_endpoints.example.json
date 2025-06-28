@@ -1,0 +1,25 @@
+{
+  "_README": {
+    "description": "Configuration for unified OpenAI-compatible endpoints",
+    "usage": "Copy this file to unified_endpoints.json and configure your custom endpoints",
+    "environment_variable": "Set UNIFIED_ENDPOINTS_CONFIG to point to your config file"
+  },
+  "model_endpoints": {
+    "llama3.2": {
+      "base_url": "http://localhost:11434/v1",
+      "api_key": ""
+    },
+    "gpt-4": {
+      "base_url": "https://my-custom-openai-endpoint.com/v1",
+      "api_key": "your-custom-api-key"
+    },
+    "claude-3": {
+      "base_url": "https://my-anthropic-proxy.com/v1",
+      "api_key": "your-proxy-api-key"
+    },
+    "gemini-pro": {
+      "base_url": "https://my-gemini-proxy.com/v1",
+      "api_key": "your-proxy-api-key"
+    }
+  }
+}

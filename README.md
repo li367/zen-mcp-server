@@ -156,7 +156,29 @@ The final implementation resulted in a 26% improvement in JSON parsing performan
 - **Text Generation WebUI**: Popular local interface for running models
 - **Any OpenAI-compatible API**: Custom endpoints for your own infrastructure
 
-> **Note:** Using multiple provider options may create ambiguity about which provider / model to use if there is an overlap. 
+### Unified OpenAI-Compatible Interface
+
+Zen MCP Server supports a unified OpenAI-compatible interface that allows you to use any model through a consistent API while supporting custom endpoints:
+
+```bash
+# Enable unified OpenAI interface
+ENABLE_UNIFIED_OPENAI=true
+
+# Configure custom endpoints for specific models
+LLAMA3_2_ENDPOINT=http://localhost:11434/v1
+LLAMA3_2_API_KEY=
+
+# Or use a configuration file
+UNIFIED_ENDPOINTS_CONFIG=/path/to/unified_endpoints.json
+```
+
+This allows you to:
+- Use any model through OpenAI-compatible API calls
+- Configure custom endpoints per model
+- Maintain compatibility with existing OpenAI tools and libraries
+- Route different models to different endpoints seamlessly
+
+> **Note:** Using multiple provider options may create ambiguity about which provider / model to use if there is an overlap.
 > If all APIs are configured, native APIs will take priority when there is a clash in model name, such as for `gemini` and `o3`.
 > Configure your model aliases and give them unique names in [`conf/custom_models.json`](conf/custom_models.json)
 
