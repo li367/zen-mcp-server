@@ -4,18 +4,22 @@ import base64
 import logging
 import os
 import time
-from typing import Optional
+from typing import Optional, Dict
 
 from google import genai
 from google.genai import types
 
 from .base import ModelCapabilities, ModelProvider, ModelResponse, ProviderType, create_temperature_constraint
+from utils.endpoint_config import EndpointConfig
 
 logger = logging.getLogger(__name__)
 
 
 class GeminiModelProvider(ModelProvider):
     """Google Gemini model provider implementation."""
+    
+    # Initialize endpoint configuration
+    _endpoint_config = EndpointConfig("google")
 
     # Model configurations using ModelCapabilities objects
     SUPPORTED_MODELS = {
@@ -114,17 +118,56 @@ class GeminiModelProvider(ModelProvider):
         "gemini-2.5-pro": 32768,  # Pro 2.5 thinking budget limit
     }
 
-    def __init__(self, api_key: str, **kwargs):
-        """Initialize Gemini provider with API key."""
+    def __init__(self, api_key: str, model_name: str = None, **kwargs):
+        """Initialize Gemini provider with API key.
+        
+        Args:
+            api_key: API key for authentication
+            model_name: Optional model name to check for custom endpoint
+            **kwargs: Additional configuration options
+        """
+        # Initialize base class
         super().__init__(api_key, **kwargs)
+        
+        # Initialize instance variables
         self._client = None
         self._token_counters = {}  # Cache for token counting
+        self._custom_api_url = None
+        self._model_name = model_name
+        
+        # Check for custom endpoint configuration for this model
+        if model_name:
+            # Print debug info
+            logger.debug(f"Checking for custom endpoint for model: {model_name}")
+            
+            # Check if this model has a custom endpoint
+            has_endpoint = self._endpoint_config.has_custom_endpoint(model_name)
+            logger.debug(f"Has custom endpoint for {model_name}: {has_endpoint}")
+            if has_endpoint:
+                endpoint_config = self._endpoint_config.get_endpoint_for_model(model_name)
+                
+                # Store custom API URL for client initialization
+                self._custom_api_url = endpoint_config["base_url"]
+                
+                # Override API key if provided
+                if endpoint_config.get("api_key"):
+                    self.api_key = endpoint_config["api_key"]
+                
+                logger.info(f"Using custom endpoint for Gemini model '{model_name}': {self._custom_api_url}")
 
     @property
     def client(self):
         """Lazy initialization of Gemini client."""
         if self._client is None:
-            self._client = genai.Client(api_key=self.api_key)
+            # Initialize with custom API URL if provided
+            if self._custom_api_url:
+                self._client = genai.Client(
+                    api_key=self.api_key,
+                    transport="rest",
+                    client_options={"api_endpoint": self._custom_api_url}
+                )
+            else:
+                self._client = genai.Client(api_key=self.api_key)
         return self._client
 
     def get_capabilities(self, model_name: str) -> ModelCapabilities:
@@ -159,6 +202,27 @@ class GeminiModelProvider(ModelProvider):
         **kwargs,
     ) -> ModelResponse:
         """Generate content using Gemini model."""
+        # Check if this model has a custom endpoint
+        if self._endpoint_config.has_custom_endpoint(model_name):
+            # Create a new instance with the custom endpoint for this specific request
+            endpoint_config = self._endpoint_config.get_endpoint_for_model(model_name)
+            custom_provider = GeminiModelProvider(
+                api_key=endpoint_config.get("api_key", self.api_key),
+                model_name=model_name
+            )
+            
+            # Use the custom provider for this request
+            return custom_provider.generate_content(
+                prompt=prompt,
+                model_name=model_name,
+                system_prompt=system_prompt,
+                temperature=temperature,
+                max_output_tokens=max_output_tokens,
+                thinking_mode=thinking_mode,
+                images=images,
+                **kwargs
+            )
+            
         # Validate parameters
         resolved_name = self._resolve_model_name(model_name)
         self.validate_parameters(model_name, temperature)

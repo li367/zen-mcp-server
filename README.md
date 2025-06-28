@@ -148,9 +148,9 @@ The final implementation resulted in a 26% improvement in JSON parsing performan
 - **X.AI**: Visit [X.AI Console](https://console.x.ai/) to get an API key for GROK model access.
 - **DIAL**: Visit [DIAL Platform](https://dialx.ai/) to get an API key for accessing multiple models through their unified API. DIAL is an open-source AI orchestration platform that provides vendor-agnostic access to models from major providers, open-source community, and self-hosted deployments. [API Documentation](https://dialx.ai/dial_api)
 
-**Option C: Custom API Endpoints (Local models like Ollama, vLLM)**
-[Please see the setup guide](docs/custom_models.md#option-2-custom-api-setup-ollama-vllm-etc). With a custom API you can use:
-- **Ollama**: Run models like Llama 3.2 locally for free inference
+**Option C: Custom Endpoints**
+- **Provider-specific endpoints**: You can configure custom API endpoints for each model provider. This allows you to use private or regional API endpoints, connect to self-hosted model deployments, or use compatible third-party API services. [Custom Endpoints Documentation](docs/custom_endpoints.md)
+- **Local models**: Run models like Llama 3.2 locally using Ollama or vLLM. [Local Models Setup Guide](docs/custom_models.md#option-2-custom-api-setup-ollama-vllm-etc)
 - **vLLM**: Self-hosted inference server for high-throughput inference
 - **LM Studio**: Local model hosting with OpenAI-compatible API interface
 - **Text Generation WebUI**: Popular local interface for running models

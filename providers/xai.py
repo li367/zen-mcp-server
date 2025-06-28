@@ -1,7 +1,8 @@
 """X.AI (GROK) model provider implementation."""
 
 import logging
-from typing import Optional
+import os
+from typing import Optional, Dict
 
 from .base import (
     ModelCapabilities,
@@ -10,6 +11,7 @@ from .base import (
     create_temperature_constraint,
 )
 from .openai_compatible import OpenAICompatibleProvider
+from utils.endpoint_config import EndpointConfig
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +20,9 @@ class XAIModelProvider(OpenAICompatibleProvider):
     """X.AI GROK API provider (api.x.ai)."""
 
     FRIENDLY_NAME = "X.AI"
+    
+    # Initialize endpoint configuration
+    _endpoint_config = EndpointConfig("xai")
 
     # Model configurations using ModelCapabilities objects
     SUPPORTED_MODELS = {
@@ -59,10 +64,26 @@ class XAIModelProvider(OpenAICompatibleProvider):
         ),
     }
 
-    def __init__(self, api_key: str, **kwargs):
-        """Initialize X.AI provider with API key."""
-        # Set X.AI base URL
-        kwargs.setdefault("base_url", "https://api.x.ai/v1")
+    def __init__(self, api_key: str, model_name: str = None, **kwargs):
+        """Initialize X.AI provider with API key.
+        
+        Args:
+            api_key: API key for authentication
+            model_name: Optional model name to check for custom endpoint
+            **kwargs: Additional configuration options
+        """
+        # Check for custom endpoint configuration for this model
+        if model_name and self._endpoint_config.has_custom_endpoint(model_name):
+            endpoint_config = self._endpoint_config.get_endpoint_for_model(model_name)
+            # Override base_url and api_key if custom endpoint is configured
+            kwargs["base_url"] = endpoint_config["base_url"]
+            if endpoint_config["api_key"]:
+                api_key = endpoint_config["api_key"]
+            logger.info(f"Using custom endpoint for X.AI model '{model_name}': {endpoint_config['base_url']}")
+        else:
+            # Set default X.AI base URL
+            kwargs.setdefault("base_url", "https://api.x.ai/v1")
+        
         super().__init__(api_key, **kwargs)
 
     def get_capabilities(self, model_name: str) -> ModelCapabilities:
@@ -115,6 +136,26 @@ class XAIModelProvider(OpenAICompatibleProvider):
         **kwargs,
     ) -> ModelResponse:
         """Generate content using X.AI API with proper model name resolution."""
+        # Check if this model has a custom endpoint
+        if self._endpoint_config.has_custom_endpoint(model_name):
+            # Create a new instance with the custom endpoint for this specific request
+            endpoint_config = self._endpoint_config.get_endpoint_for_model(model_name)
+            custom_provider = XAIModelProvider(
+                api_key=endpoint_config.get("api_key", self.api_key),
+                model_name=model_name,
+                base_url=endpoint_config["base_url"]
+            )
+            
+            # Use the custom provider for this request
+            return custom_provider.generate_content(
+                prompt=prompt,
+                model_name=model_name,
+                system_prompt=system_prompt,
+                temperature=temperature,
+                max_output_tokens=max_output_tokens,
+                **kwargs
+            )
+            
         # Resolve model alias before making API call
         resolved_model_name = self._resolve_model_name(model_name)
 
