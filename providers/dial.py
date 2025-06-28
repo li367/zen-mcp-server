@@ -4,7 +4,7 @@ import logging
 import os
 import threading
 import time
-from typing import Optional
+from typing import Optional, Dict
 
 from .base import (
     ModelCapabilities,
@@ -13,6 +13,7 @@ from .base import (
     create_temperature_constraint,
 )
 from .openai_compatible import OpenAICompatibleProvider
+from utils.endpoint_config import EndpointConfig
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,9 @@ class DIALModelProvider(OpenAICompatibleProvider):
     """
 
     FRIENDLY_NAME = "DIAL"
+    
+    # Initialize endpoint configuration
+    _endpoint_config = EndpointConfig("dial")
 
     # Retry configuration for API calls
     MAX_RETRIES = 4
@@ -196,15 +200,25 @@ class DIALModelProvider(OpenAICompatibleProvider):
         ),
     }
 
-    def __init__(self, api_key: str, **kwargs):
+    def __init__(self, api_key: str, model_name: str = None, **kwargs):
         """Initialize DIAL provider with API key and host.
 
         Args:
             api_key: DIAL API key for authentication
+            model_name: Optional model name to check for custom endpoint
             **kwargs: Additional configuration options
         """
-        # Get DIAL API host from environment or kwargs
-        dial_host = kwargs.get("base_url") or os.getenv("DIAL_API_HOST") or "https://core.dialx.ai"
+        # Check for custom endpoint configuration for this model
+        if model_name and self._endpoint_config.has_custom_endpoint(model_name):
+            endpoint_config = self._endpoint_config.get_endpoint_for_model(model_name)
+            # Override base_url and api_key if custom endpoint is configured
+            dial_host = endpoint_config["base_url"]
+            if endpoint_config["api_key"]:
+                api_key = endpoint_config["api_key"]
+            logger.info(f"Using custom endpoint for DIAL model '{model_name}': {dial_host}")
+        else:
+            # Get DIAL API host from environment or kwargs
+            dial_host = kwargs.get("base_url") or os.getenv("DIAL_API_HOST") or "https://core.dialx.ai"
 
         # DIAL uses /openai endpoint for OpenAI-compatible API
         if not dial_host.endswith("/openai"):
@@ -396,6 +410,25 @@ class DIALModelProvider(OpenAICompatibleProvider):
         Returns:
             ModelResponse with generated content and metadata
         """
+        # Check if this model has a custom endpoint
+        if self._endpoint_config.has_custom_endpoint(model_name):
+            # Create a new instance with the custom endpoint for this specific request
+            endpoint_config = self._endpoint_config.get_endpoint_for_model(model_name)
+            custom_provider = DIALModelProvider(
+                api_key=endpoint_config.get("api_key", self._dial_api_key),
+                model_name=model_name
+            )
+            
+            # Use the custom provider for this request
+            return custom_provider.generate_content(
+                prompt=prompt,
+                model_name=model_name,
+                system_prompt=system_prompt,
+                temperature=temperature,
+                max_output_tokens=max_output_tokens,
+                images=images,
+                **kwargs
+            )
         # Validate model name against allow-list
         if not self.validate_model_name(model_name):
             raise ValueError(f"Model '{model_name}' not in allowed models list. Allowed models: {self.allowed_models}")

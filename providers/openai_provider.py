@@ -1,7 +1,8 @@
 """OpenAI model provider implementation."""
 
 import logging
-from typing import Optional
+import os
+from typing import Optional, Dict
 
 from .base import (
     ModelCapabilities,
@@ -10,12 +11,16 @@ from .base import (
     create_temperature_constraint,
 )
 from .openai_compatible import OpenAICompatibleProvider
+from utils.endpoint_config import EndpointConfig
 
 logger = logging.getLogger(__name__)
 
 
 class OpenAIModelProvider(OpenAICompatibleProvider):
     """Official OpenAI API provider (api.openai.com)."""
+    
+    # Initialize endpoint configuration
+    _endpoint_config = EndpointConfig("openai")
 
     # Model configurations using ModelCapabilities objects
     SUPPORTED_MODELS = {
@@ -111,10 +116,32 @@ class OpenAIModelProvider(OpenAICompatibleProvider):
         ),
     }
 
-    def __init__(self, api_key: str, **kwargs):
-        """Initialize OpenAI provider with API key."""
-        # Set default OpenAI base URL, allow override for regions/custom endpoints
-        kwargs.setdefault("base_url", "https://api.openai.com/v1")
+    def __init__(self, api_key: str, model_name: str = None, **kwargs):
+        """Initialize OpenAI provider with API key.
+        
+        Args:
+            api_key: API key for authentication
+            model_name: Optional model name to check for custom endpoint
+            **kwargs: Additional configuration options
+        """
+        # Store original model name for endpoint lookup
+        self._model_name = model_name
+        
+        # Check for custom endpoint configuration for this model
+        custom_endpoint = False
+        if model_name and self._endpoint_config.has_custom_endpoint(model_name):
+            endpoint_config = self._endpoint_config.get_endpoint_for_model(model_name)
+            # Override base_url and api_key if custom endpoint is configured
+            kwargs["base_url"] = endpoint_config["base_url"]
+            if endpoint_config["api_key"]:
+                api_key = endpoint_config["api_key"]
+            logger.info(f"Using custom endpoint for OpenAI model '{model_name}': {endpoint_config['base_url']}")
+            custom_endpoint = True
+        
+        # Set default OpenAI base URL if not using custom endpoint and not already set
+        if not custom_endpoint and "base_url" not in kwargs:
+            kwargs["base_url"] = "https://api.openai.com/v1"
+        
         super().__init__(api_key, **kwargs)
 
     def get_capabilities(self, model_name: str) -> ModelCapabilities:
@@ -169,7 +196,27 @@ class OpenAIModelProvider(OpenAICompatibleProvider):
         """Generate content using OpenAI API with proper model name resolution."""
         # Resolve model alias before making API call
         resolved_model_name = self._resolve_model_name(model_name)
-
+        
+        # Check if this model has a custom endpoint
+        if self._endpoint_config.has_custom_endpoint(model_name):
+            # Create a new instance with the custom endpoint for this specific request
+            endpoint_config = self._endpoint_config.get_endpoint_for_model(model_name)
+            custom_provider = OpenAIModelProvider(
+                api_key=endpoint_config.get("api_key", self.api_key),
+                model_name=model_name,
+                base_url=endpoint_config["base_url"]
+            )
+            
+            # Use the custom provider for this request
+            return custom_provider.generate_content(
+                prompt=prompt,
+                model_name=resolved_model_name,
+                system_prompt=system_prompt,
+                temperature=temperature,
+                max_output_tokens=max_output_tokens,
+                **kwargs
+            )
+        
         # Call parent implementation with resolved model name
         return super().generate_content(
             prompt=prompt,

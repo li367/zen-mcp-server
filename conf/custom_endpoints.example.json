@@ -1,0 +1,28 @@
+{
+  "openai_endpoints": {
+    "o3": {
+      "base_url": "https://custom-openai-endpoint.com/v1",
+      "api_key": "your-custom-api-key"
+    },
+    "o4-mini": {
+      "base_url": "https://another-openai-endpoint.com/v1",
+      "api_key": "another-custom-api-key"
+    }
+  },
+  "google_endpoints": {
+    "gemini-2.5-pro": {
+      "base_url": "https://custom-gemini-endpoint.com",
+      "api_key": "your-custom-api-key"
+    },
+    "flash": {
+      "base_url": "https://another-gemini-endpoint.com",
+      "api_key": "another-custom-api-key"
+    }
+  },
+  "xai_endpoints": {
+    "grok": {
+      "base_url": "https://custom-xai-endpoint.com/v1",
+      "api_key": "your-custom-api-key"
+    }
+  }
+}
